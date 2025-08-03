@@ -1,0 +1,109 @@
+name: Build OpenCV AAR (arm64-v8a)
+
+on:
+  workflow_dispatch: # Manual trigger
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Install Java & Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y openjdk-17-jdk unzip wget
+
+      - name: Download OpenCV Android SDK
+        run: |
+          OPENCV_VERSION="4.12.0"
+          wget -q -O opencv-android-sdk.zip https://github.com/opencv/opencv/releases/download/${OPENCV_VERSION}/opencv-${OPENCV_VERSION}-android-sdk.zip
+          unzip -q opencv-android-sdk.zip -d $GITHUB_WORKSPACE
+
+      - name: Prepare Gradle Project
+        run: |
+          mkdir -p OpenCV-AAR/opencv-lib
+          cat > OpenCV-AAR/settings.gradle <<'EOF'
+          rootProject.name = "OpenCV-AAR"
+          include(":opencv-lib")
+          EOF
+
+          cat > OpenCV-AAR/build.gradle <<'EOF'
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath "com.android.tools.build:gradle:8.2.2" }
+          }
+          allprojects {
+              repositories { google(); mavenCentral() }
+          }
+          EOF
+
+          cat > OpenCV-AAR/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx4g
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
+
+          cat > OpenCV-AAR/opencv-lib/build.gradle <<'EOF'
+          plugins { id 'com.android.library' }
+
+          android {
+              namespace "org.opencv"
+              compileSdk 34
+
+              defaultConfig {
+                  minSdk 24
+                  targetSdk 34
+                  consumerProguardFiles "consumer-rules.pro"
+                  ndk { abiFilters "arm64-v8a" }
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+                  }
+              }
+
+              sourceSets {
+                  main {
+                      java.srcDirs = ['src/main/java']
+                      jniLibs.srcDirs = ['src/main/jniLibs']
+                  }
+              }
+          }
+          EOF
+
+          touch OpenCV-AAR/opencv-lib/consumer-rules.pro
+          touch OpenCV-AAR/opencv-lib/proguard-rules.pro
+
+          mkdir -p OpenCV-AAR/opencv-lib/src/main/java
+          cp -r opencv-4.12.0-android-sdk/sdk/java/src/* OpenCV-AAR/opencv-lib/src/main/java/
+
+          mkdir -p OpenCV-AAR/opencv-lib/src/main/jniLibs/arm64-v8a
+          cp -r opencv-4.12.0-android-sdk/sdk/native/libs/arm64-v8a/* OpenCV-AAR/opencv-lib/src/main/jniLibs/arm64-v8a/
+
+          mkdir -p OpenCV-AAR/opencv-lib/libs
+          cp opencv-4.12.0-android-sdk/sdk/java/bin/opencv-*.jar OpenCV-AAR/opencv-lib/libs/
+
+      - name: Install Gradle
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.2.1-bin.zip
+          unzip -q gradle-8.2.1-bin.zip -d /opt/gradle
+          echo "/opt/gradle/gradle-8.2.1/bin" >> $GITHUB_PATH
+
+      - name: Build AAR
+        run: |
+          cd OpenCV-AAR
+          gradle :opencv-lib:assembleRelease --no-daemon
+
+      - name: Upload AAR Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencv-arm64-v8a-aar
+          path: OpenCV-AAR/opencv-lib/build/outputs/aar/opencv-lib-release.aar
