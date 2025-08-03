@@ -24,91 +24,77 @@ jobs:
       - name: Download OpenCV Android SDK
         run: |
           OPENCV_VERSION="4.12.0"
-          wget -q -O opencv-android-sdk.zip \
-            https://github.com/opencv/opencv/releases/download/${OPENCV_VERSION}/opencv-${OPENCV_VERSION}-android-sdk.zip
+          wget -q -O opencv-android-sdk.zip https://github.com/opencv/opencv/releases/download/${OPENCV_VERSION}/opencv-${OPENCV_VERSION}-android-sdk.zip
           unzip -q opencv-android-sdk.zip
 
       - name: Prepare Gradle Project
         run: |
           mkdir -p OpenCV-AAR/opencv-lib
-
-          # 1. settings.gradle
+          
           cat > OpenCV-AAR/settings.gradle <<'EOF'
-rootProject.name = "OpenCV-AAR"
-include(":opencv-lib")
-EOF
+          rootProject.name = "OpenCV-AAR"
+          include(":opencv-lib")
+          EOF
 
-          # 2. Root build.gradle
           cat > OpenCV-AAR/build.gradle <<'EOF'
-buildscript {
-    repositories { google(); mavenCentral() }
-    dependencies { classpath "com.android.tools.build:gradle:8.2.2" }
-}
-allprojects {
-    repositories { google(); mavenCentral() }
-}
-EOF
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath "com.android.tools.build:gradle:8.2.2" }
+          }
+          allprojects {
+              repositories { google(); mavenCentral() }
+          }
+          EOF
 
-          # 3. gradle.properties
           cat > OpenCV-AAR/gradle.properties <<'EOF'
-org.gradle.jvmargs=-Xmx4g
-android.useAndroidX=true
-android.enableJetifier=true
-EOF
+          org.gradle.jvmargs=-Xmx4g
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
 
-          # 4. Library build.gradle
           cat > OpenCV-AAR/opencv-lib/build.gradle <<'EOF'
-plugins { id 'com.android.library' }
+          plugins { id 'com.android.library' }
 
-android {
-    namespace "org.opencv"
-    compileSdk 34
+          android {
+              namespace "org.opencv"
+              compileSdk 34
 
-    defaultConfig {
-        minSdk 24
-        targetSdk 34
-        consumerProguardFiles "consumer-rules.pro"
-        ndk { abiFilters "arm64-v8a" }
-    }
+              defaultConfig {
+                  minSdk 24
+                  targetSdk 34
+                  consumerProguardFiles "consumer-rules.pro"
+                  ndk { abiFilters "arm64-v8a" }
+              }
 
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-        }
-    }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+                  }
+              }
 
-    sourceSets {
-        main {
-            java.srcDirs = ['src/main/java']
-            jniLibs.srcDirs = ['src/main/jniLibs']
-        }
-    }
-}
-EOF
+              sourceSets {
+                  main {
+                      java.srcDirs = ['src/main/java']
+                      jniLibs.srcDirs = ['src/main/jniLibs']
+                  }
+              }
+          }
+          EOF
 
-          # 5. Touch ProGuard files
           touch OpenCV-AAR/opencv-lib/consumer-rules.pro
           touch OpenCV-AAR/opencv-lib/proguard-rules.pro
 
-          # 6. Create source/jniLibs/libs folders
           mkdir -p OpenCV-AAR/opencv-lib/src/main/java
           mkdir -p OpenCV-AAR/opencv-lib/src/main/jniLibs/arm64-v8a
           mkdir -p OpenCV-AAR/opencv-lib/libs
 
-          # 7. Auto-detect the SDK folder
-          OPENCV_DIR=$(find . -maxdepth 1 -type d -name "*android-sdk*" | head -n1)
+          # Auto-detect OpenCV SDK folder
+          OPENCV_DIR=$(find . -maxdepth 1 -type d -name "*android-sdk*" | head -n 1)
 
-          # 8. Copy Java sources
           cp -r "$OPENCV_DIR/sdk/java/src/"* OpenCV-AAR/opencv-lib/src/main/java/
-
-          # 9. Copy native libs for arm64-v8a
-          cp -r "$OPENCV_DIR/sdk/native/libs/arm64-v8a/"* \
-            OpenCV-AAR/opencv-lib/src/main/jniLibs/arm64-v8a/
-
-          # 10. Auto-detect & copy the JAR
-          JAR_FILE=$(find "$OPENCV_DIR/sdk/java" -type f -name "*.jar" | head -n1)
-          cp "$JAR_FILE" OpenCV-AAR/opencv-lib/libs/opencv-${OPENCV_VERSION}.jar
+          cp -r "$OPENCV_DIR/sdk/native/libs/arm64-v8a/"* OpenCV-AAR/opencv-lib/src/main/jniLibs/arm64-v8a/
+          cp "$OPENCV_DIR/sdk/java/bin/opencv-"*.jar OpenCV-AAR/opencv-lib/libs/
 
       - name: Install Gradle
         run: |
@@ -124,8 +110,7 @@ EOF
       - name: Commit & Push AAR to Repo
         run: |
           mkdir -p dist
-          cp OpenCV-AAR/opencv-lib/build/outputs/aar/opencv-lib-release.aar \
-             dist/opencv-4.12.0-arm64-v8a.aar
+          cp OpenCV-AAR/opencv-lib/build/outputs/aar/opencv-lib-release.aar dist/opencv-4.12.0-arm64-v8a.aar
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add dist/
