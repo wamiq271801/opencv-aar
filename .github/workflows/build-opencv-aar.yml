@@ -56,17 +56,27 @@ jobs:
                   targetSdk 34
                   consumerProguardFiles "consumer-rules.pro"
                   ndk { abiFilters "arm64-v8a" }
+                  
+                  // Generate BuildConfig class
+                  buildConfigField "boolean", "DEBUG", "false"
               }
               buildTypes {
                   release {
                       minifyEnabled false
                       proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
                   }
+                  debug {
+                      buildConfigField "boolean", "DEBUG", "true"
+                  }
+              }
+              buildFeatures {
+                  buildConfig true
               }
               sourceSets {
                   main {
                       java.srcDirs = ['src/main/java']
                       jniLibs.srcDirs = ['src/main/jniLibs']
+                      res.srcDirs = ['src/main/res']
                   }
               }
           }
@@ -76,6 +86,7 @@ jobs:
           touch OpenCV-AAR/opencv-lib/proguard-rules.pro
           mkdir -p OpenCV-AAR/opencv-lib/src/main/java
           mkdir -p OpenCV-AAR/opencv-lib/src/main/jniLibs/arm64-v8a
+          mkdir -p OpenCV-AAR/opencv-lib/src/main/res/values
           
           # Auto-detect OpenCV SDK folder
           OPENCV_DIR=$(find . -maxdepth 1 -type d -name "*android-sdk*" | head -n 1)
@@ -90,6 +101,23 @@ jobs:
               cp -r "$OPENCV_DIR/sdk/java/src/"* OpenCV-AAR/opencv-lib/src/main/java/
           else
               echo "Warning: Java source directory not found"
+          fi
+          
+          # Copy resources if they exist
+          if [ -d "$OPENCV_DIR/sdk/java/res" ]; then
+              cp -r "$OPENCV_DIR/sdk/java/res/"* OpenCV-AAR/opencv-lib/src/main/res/
+          else
+              echo "No OpenCV resources found, creating minimal resources"
+              # Create minimal attrs.xml for CameraBridgeViewBase
+              cat > OpenCV-AAR/opencv-lib/src/main/res/values/attrs.xml <<'ATTRS_EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="CameraBridgeViewBase">
+        <attr name="show_fps" format="boolean" />
+        <attr name="camera_id" format="integer" />
+    </declare-styleable>
+</resources>
+ATTRS_EOF
           fi
           
           # Copy native libraries
