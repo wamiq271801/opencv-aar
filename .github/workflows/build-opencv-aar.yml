@@ -109,15 +109,15 @@ jobs:
           else
               echo "No OpenCV resources found, creating minimal resources"
               # Create minimal attrs.xml for CameraBridgeViewBase
-              cat > OpenCV-AAR/opencv-lib/src/main/res/values/attrs.xml <<'ATTRS_EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <declare-styleable name="CameraBridgeViewBase">
-        <attr name="show_fps" format="boolean" />
-        <attr name="camera_id" format="integer" />
-    </declare-styleable>
-</resources>
-ATTRS_EOF
+              cat > OpenCV-AAR/opencv-lib/src/main/res/values/attrs.xml << 'ATTRS_EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <declare-styleable name="CameraBridgeViewBase">
+                  <attr name="show_fps" format="boolean" />
+                  <attr name="camera_id" format="integer" />
+              </declare-styleable>
+          </resources>
+          ATTRS_EOF
           fi
           
           # Copy native libraries
