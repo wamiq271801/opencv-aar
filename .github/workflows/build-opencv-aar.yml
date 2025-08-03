@@ -11,6 +11,7 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
       - name: Install Java & Tools
         run: |
@@ -161,12 +162,9 @@ jobs:
           cd OpenCV-AAR
           gradle :opencv-lib:assembleRelease --no-daemon
           
-      - name: Commit & Push AAR to Repo
-        run: |
-          mkdir -p dist
-          cp OpenCV-AAR/opencv-lib/build/outputs/aar/opencv-lib-release.aar dist/opencv-4.12.0-arm64-v8a.aar
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add dist/
-          git commit -m "Add OpenCV 4.12.0 arm64-v8a AAR [skip ci]" || echo "No changes to commit"
-          git push origin main
+      - name: Upload AAR as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencv-4.12.0-arm64-v8a-aar
+          path: OpenCV-AAR/opencv-lib/build/outputs/aar/opencv-lib-release.aar
+          retention-days: 90
